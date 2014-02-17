@@ -2,10 +2,10 @@
 
 This repository should contain several examples how a websocket server could be implemented in python.
 
-`server_01` : NOT working
-`server_02` : NOT working
-`server_03` : NOT working
-`server_04` : is working
+* `server_01` : NOT working
+* `server_02` : NOT working
+* `server_03` : NOT working
+* `server_04` : is working
 
 ## Links
 * <http://stackoverflow.com/questions/5839054/websocket-server-in-python>
