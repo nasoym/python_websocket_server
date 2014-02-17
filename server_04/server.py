@@ -89,10 +89,15 @@ class PyWSock:
             while 1:            
                 data = self.recv_data(client)
                 print("received: %s" % (data,))
-                message = json.loads(data)
-                if 'percentage' in message:
-                  print("percentage: %s" % message['percentage'])
                 #self.broadcast_resp(data)
+                try:
+                  message = json.loads(data)
+                except ValueError, e:
+                  print("invalid json")
+                else:
+                  if 'percentage' in message:
+                    print("percentage: %s" % message['percentage'])
+                  pass
         except Exception as e:
             print("Exception %s" % (str(e)))
         print('Client closed: ' + str(addr))
