@@ -2,6 +2,7 @@
 # from: http://sidekick.windforwings.com/2013/03/minimal-websocket-broadcast-server-in.html
  
 import socket, hashlib, base64, threading
+import json
 
 class PyWSock:
     MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
@@ -87,8 +88,11 @@ class PyWSock:
         try:
             while 1:            
                 data = self.recv_data(client)
-                print("received [%s]" % (data,))
-                self.broadcast_resp(data)
+                print("received: %s" % (data,))
+                message = json.loads(data)
+                if 'percentage' in message:
+                  print("percentage: %s" % message['percentage'])
+                #self.broadcast_resp(data)
         except Exception as e:
             print("Exception %s" % (str(e)))
         print('Client closed: ' + str(addr))
