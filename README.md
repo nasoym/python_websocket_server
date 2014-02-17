@@ -11,5 +11,5 @@ This repository should contain several examples how a websocket server could be 
 * <https://pypi.python.org/pypi/websockify>
 * <http://popdevelop.com/2010/03/a-minimal-python-websocket-server/>
 * <http://yz.mit.edu/wp/web-sockets-tutorial-with-simple-python-server/>
-
+* <http://sidekick.windforwings.com/2013/03/minimal-websocket-broadcast-server-in.html>
 
