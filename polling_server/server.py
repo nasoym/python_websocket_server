@@ -28,11 +28,26 @@ class WebsocketClient:
     else:
       return self.poll_message()
 
+  def send(self, data):
+    # 1st byte: fin bit set. text frame bits set.
+    # 2nd byte: no mask. length set in 1 byte. 
+    resp = bytearray([0b10000001, len(data)])
+    # append the data bytes
+    for d in bytearray(data):
+      resp.append(d)
+    try:
+      self.connection.send(resp)
+      return True
+    except Exception as e:
+      print("Exception %s" % (str(e)))
+      return False
+
   def poll_message(self):
     try:
       data = self.recv_data()
       print("received: %s" % (data,))
       #self.broadcast_resp(data)
+      self.send('ok')
       return True
     except socket.error, e:
       if e.errno == errno.EAGAIN:
