@@ -3,8 +3,8 @@
  
 import socket, hashlib, base64, threading
 import json
-import select
-import asyncore
+#import select
+#import asyncore
 
 import errno
 
@@ -20,24 +20,20 @@ class WebsocketClient:
     self.connection = connection
     self.address = address
     self.handshaked = False
-    print ('connenction: ' + str(self.connection))
-    print ('address: ' + str(self.address))
 
   def serve_connection(self):
     if (self.handshaked == False):
       self.handshaked = self.handshake()
+      return True
     else:
-      pass
-      self.poll_message()
+      return self.poll_message()
 
   def poll_message(self):
     try:
       data = self.recv_data()
       print("received: %s" % (data,))
       #self.broadcast_resp(data)
-    except socket.timeout, e:
-      print('socket timeout' + str(e))
-      pass
+      return True
     except socket.error, e:
       if e.errno == errno.EAGAIN:
         #print('errno.EAGAIN')
@@ -48,72 +44,64 @@ class WebsocketClient:
     except Exception as e:
       pass
       print("Exception %s" % (str(e)))
-      print('NO: ' + str(e.args[0]))
+      return False
 
   def recv_data(self):
-      # as a simple server, we expect to receive:
-      #    - all data at one go and one frame
-      #    - one frame at a time
-      #    - text protocol
-      #    - no ping pong messages
-      data = bytearray(self.connection.recv(512))
-      if(len(data) < 6):
-          raise Exception("Error reading data")
-      # FIN bit must be set to indicate end of frame
-      assert(0x1 == (0xFF & data[0]) >> 7)
-      # data must be a text frame
-      # 0x8 (close connection) is handled with assertion failure
-      assert(0x1 == (0xF & data[0]))
-      
-      # assert that data is masked
-      assert(0x1 == (0xFF & data[1]) >> 7)
-      datalen = (0x7F & data[1])
-      
-      #print("received data len %d" %(datalen,))
-      
-      str_data = ''
-      if(datalen > 0):
-          mask_key = data[2:6]
-          masked_data = data[6:(6+datalen)]
-          unmasked_data = [masked_data[i] ^ mask_key[i%4] for i in range(len(masked_data))]
-          str_data = str(bytearray(unmasked_data))
-      return str_data
+    # as a simple server, we expect to receive:
+    #    - all data at one go and one frame
+    #    - one frame at a time
+    #    - text protocol
+    #    - no ping pong messages
+    data = bytearray(self.connection.recv(512))
+    if(len(data) < 6):
+      raise Exception("Error reading data")
+    # FIN bit must be set to indicate end of frame
+    assert(0x1 == (0xFF & data[0]) >> 7)
+    # data must be a text frame
+    # 0x8 (close connection) is handled with assertion failure
+    assert(0x1 == (0xF & data[0]))
+    # assert that data is masked
+    assert(0x1 == (0xFF & data[1]) >> 7)
+    datalen = (0x7F & data[1])
+    #print("received data len %d" %(datalen,))
+    str_data = ''
+    if(datalen > 0):
+      mask_key = data[2:6]
+      masked_data = data[6:(6+datalen)]
+      unmasked_data = [masked_data[i] ^ mask_key[i%4] for i in range(len(masked_data))]
+      str_data = str(bytearray(unmasked_data))
+    return str_data
 
   def parse_headers (self, data):
-      headers = {}
-      lines = data.splitlines()
-      for l in lines:
-          parts = l.split(": ", 1)
-          if len(parts) == 2:
-              headers[parts[0]] = parts[1]
-      headers['code'] = lines[len(lines) - 1]
-      return headers
+    headers = {}
+    lines = data.splitlines()
+    for l in lines:
+        parts = l.split(": ", 1)
+        if len(parts) == 2:
+            headers[parts[0]] = parts[1]
+    headers['code'] = lines[len(lines) - 1]
+    return headers
 
   def handshake (self):
     try:
-      print('Handshaking...')
       data = self.connection.recv(2048)
+      #print('Handshaking...')
       headers = self.parse_headers(data)
-      print('Got headers:')
-      for k, v in headers.iteritems():
-          print k, ':', v
-          
+      #print('Got headers:')
+      #for k, v in headers.iteritems():
+      #    print k, ':', v
       key = headers['Sec-WebSocket-Key']
       resp_data = self.HSHAKE_RESP % ((base64.b64encode(hashlib.sha1(key+self.MAGIC).digest()),))
-      print('Response: [%s]' % (resp_data,))
+      #print('Response: [%s]' % (resp_data,))
       #return self.connection.send(resp_data)
+      print('Handshaked')
       self.connection.send(resp_data)
       return True
-    except socket.timeout, e:
-      #print('socket timeout' + str(e))
-      pass
     except socket.error, e:
-      #print('socket error' + str(e))
       pass
     return False
 
 class PollingWebSocketServer:
-
   server_socket = None
   address = ''
   connected_clients = []
@@ -142,15 +130,15 @@ class PollingWebSocketServer:
       #print('socket error' + str(e))
       pass
 
+    connections_to_remove = []
     for c in self.connected_clients:
-      c.serve_connection()
-  
-  def hello(self):
-    print('hello')
-    print('port: ' + str(self.port))
+      if (c.serve_connection() == False):
+        connections_to_remove.append(c)
+    for c in connections_to_remove:
+      self.connected_clients.remove(c)
 
+  
 t = PollingWebSocketServer()
-t.hello()
 while True:
   t.poll_connections()
 
