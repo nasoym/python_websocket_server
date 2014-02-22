@@ -39,8 +39,10 @@ class WebsocketClient:
     try:
       self.connection.send(resp)
       return True
+    except socket.error, e:
+      print('send: socket error' + str(e))
     except Exception as e:
-      print("Exception %s" % (str(e)))
+      print("send: Exception %s" % (str(e)))
       return False
 
   def poll_message(self):
@@ -55,11 +57,12 @@ class WebsocketClient:
         #print('errno.EAGAIN')
         pass
       else:
-        print('socket error' + str(e))
+        #print('poll_message: socket error' + str(e))
+        pass
       pass
     except Exception as e:
       pass
-      print("Exception %s" % (str(e)))
+      print("poll_message: Exception %s" % (str(e)))
       return False
 
   def recv_data(self):
@@ -114,6 +117,7 @@ class WebsocketClient:
       self.connection.send(resp_data)
       return True
     except socket.error, e:
+      print('handshake: socket error' + str(e))
       pass
     return False
 
@@ -139,11 +143,8 @@ class PollingWebSocketServer:
     try:
       conn, addr = self.server_socket.accept()
       self.connected_clients.append(WebsocketClient(conn,addr))
-    except socket.timeout, e:
-      #print('socket timeout' + str(e))
-      pass
     except socket.error, e:
-      #print('socket error' + str(e))
+      #print('poll_connections: socket error' + str(e))
       pass
 
     connections_to_remove = []
@@ -152,7 +153,6 @@ class PollingWebSocketServer:
         connections_to_remove.append(c)
     for c in connections_to_remove:
       self.connected_clients.remove(c)
-
   
 try:
   t = PollingWebSocketServer()
