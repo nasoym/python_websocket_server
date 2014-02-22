@@ -7,6 +7,7 @@ import json
 #import asyncore
 
 import errno
+import sys
 
 class WebsocketClient:
   MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
@@ -153,7 +154,11 @@ class PollingWebSocketServer:
       self.connected_clients.remove(c)
 
   
-t = PollingWebSocketServer()
-while True:
-  t.poll_connections()
+try:
+  t = PollingWebSocketServer()
+  while True:
+    t.poll_connections()
+except KeyboardInterrupt as e:
+  print('')
+  sys.exit(0)
 
