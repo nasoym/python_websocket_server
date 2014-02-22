@@ -6,13 +6,111 @@ import json
 import select
 import asyncore
 
+import errno
+
 class WebsocketClient:
-  #connection = None
+  MAGIC = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+  HSHAKE_RESP = "HTTP/1.1 101 Switching Protocols\r\n" + \
+              "Upgrade: websocket\r\n" + \
+              "Connection: Upgrade\r\n" + \
+              "Sec-WebSocket-Accept: %s\r\n" + \
+              "\r\n"
+
   def __init__(self,connection,address):
     self.connection = connection
     self.address = address
+    self.handshaked = False
     print ('connenction: ' + str(self.connection))
     print ('address: ' + str(self.address))
+
+  def serve_connection(self):
+    if (self.handshaked == False):
+      self.handshaked = self.handshake()
+    else:
+      pass
+      self.poll_message()
+
+  def poll_message(self):
+    try:
+      data = self.recv_data()
+      print("received: %s" % (data,))
+      #self.broadcast_resp(data)
+    except socket.timeout, e:
+      print('socket timeout' + str(e))
+      pass
+    except socket.error, e:
+      if e.errno == errno.EAGAIN:
+        #print('errno.EAGAIN')
+        pass
+      else:
+        print('socket error' + str(e))
+      pass
+    except Exception as e:
+      pass
+      print("Exception %s" % (str(e)))
+      print('NO: ' + str(e.args[0]))
+
+  def recv_data(self):
+      # as a simple server, we expect to receive:
+      #    - all data at one go and one frame
+      #    - one frame at a time
+      #    - text protocol
+      #    - no ping pong messages
+      data = bytearray(self.connection.recv(512))
+      if(len(data) < 6):
+          raise Exception("Error reading data")
+      # FIN bit must be set to indicate end of frame
+      assert(0x1 == (0xFF & data[0]) >> 7)
+      # data must be a text frame
+      # 0x8 (close connection) is handled with assertion failure
+      assert(0x1 == (0xF & data[0]))
+      
+      # assert that data is masked
+      assert(0x1 == (0xFF & data[1]) >> 7)
+      datalen = (0x7F & data[1])
+      
+      #print("received data len %d" %(datalen,))
+      
+      str_data = ''
+      if(datalen > 0):
+          mask_key = data[2:6]
+          masked_data = data[6:(6+datalen)]
+          unmasked_data = [masked_data[i] ^ mask_key[i%4] for i in range(len(masked_data))]
+          str_data = str(bytearray(unmasked_data))
+      return str_data
+
+  def parse_headers (self, data):
+      headers = {}
+      lines = data.splitlines()
+      for l in lines:
+          parts = l.split(": ", 1)
+          if len(parts) == 2:
+              headers[parts[0]] = parts[1]
+      headers['code'] = lines[len(lines) - 1]
+      return headers
+
+  def handshake (self):
+    try:
+      print('Handshaking...')
+      data = self.connection.recv(2048)
+      headers = self.parse_headers(data)
+      print('Got headers:')
+      for k, v in headers.iteritems():
+          print k, ':', v
+          
+      key = headers['Sec-WebSocket-Key']
+      resp_data = self.HSHAKE_RESP % ((base64.b64encode(hashlib.sha1(key+self.MAGIC).digest()),))
+      print('Response: [%s]' % (resp_data,))
+      #return self.connection.send(resp_data)
+      self.connection.send(resp_data)
+      return True
+    except socket.timeout, e:
+      #print('socket timeout' + str(e))
+      pass
+    except socket.error, e:
+      #print('socket error' + str(e))
+      pass
+    return False
 
 class PollingWebSocketServer:
 
@@ -43,6 +141,9 @@ class PollingWebSocketServer:
     except socket.error, e:
       #print('socket error' + str(e))
       pass
+
+    for c in self.connected_clients:
+      c.serve_connection()
   
   def hello(self):
     print('hello')
@@ -53,40 +154,3 @@ t.hello()
 while True:
   t.poll_connections()
 
-# port = 4545
-# server_socket = socket.socket()
-# server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-# server_socket.setblocking(0)
-# #server_socket.settimeout(1)
-# 
-# server_socket.bind(('', port))
-# server_socket.listen(5)
-# 
-# #while True:
-# try:
-#   print ('Waiting for connection...')
-#   conn, addr = server_socket.accept()
-#   print ('connenction: ' + str(conn))
-#   print ('address: ' + str(addr))
-# except socket.timeout, e:
-#   print('socket timeout' + str(e))
-# except socket.error, e:
-#   print('socket error' + str(e))
-# 
-# #read_list = [server_socket]
-# #while True:
-# #    readable, writable, errored = select.select(read_list, [], [])
-# #    print('.')
-# #    for s in readable:
-# #        if s is server_socket:
-# #            client_socket, address = server_socket.accept()
-# #            read_list.append(client_socket)
-# #            print "Connection from", address
-# #        else:
-# #            data = s.recv(1024)
-# #            if data:
-# #                s.send(data)
-# #            else:
-# #                s.close()
-# #                read_list.remove(s)
-# #
